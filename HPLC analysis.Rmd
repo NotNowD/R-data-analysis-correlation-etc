@@ -1,0 +1,54 @@
+---
+title: "General analysis"
+author: "not_now_d"
+date: "2023-10-03"
+output: html_document
+---
+
+
+```{r pkg, message = FALSE}
+library(ggplot2)
+library(tidyverse)
+library(readxl)
+
+library(FSA)
+#library(GmAMisc)
+library(PMCMRplus)
+library(ggstatsplot)
+```
+
+```{r}
+data <- read_excel("data/data-2-factor.xlsx")
+data
+```
+```{r}
+
+```
+
+```{r}
+data |> group_by(time, liquid, product, condition) |> 
+  summarise(mean_exp = mean(FW), sd_exp = sd(FW, na.rm = TRUE)/sqrt(length(FW))) -> grouped_data 
+grouped_data
+grouped_data |> 
+  ggplot(aes(x = condition , y = mean_exp, fill  = product)) + 
+    facet_wrap(time~liquid, scales = "free_x", nrow = 1) +
+    #geom_boxplot()+
+    geom_bar(colour = "black", position = position_dodge(), stat="identity") + geom_errorbar(aes(ymin = mean_exp - sd_exp, ymax = mean_exp + sd_exp), width = 0.5, size = 0.3, position = position_dodge(0.9), colour="black") + 
+    labs(x = "", y = expression(paste("FW ", ng*g^{-1}))) -> p1
+  p1
+```
+
+
+```{r}
+#grouped_data |> 
+#ggbetweenstats( x = condition, y = mean_exp, type = "bayes", xlab = "", ylab = expression(paste("FW ", ng*g^{-1}))) + 
+#    facet_wrap(time~liquid, #scales = "free_x", 
+#               nrow = 1)
+```
+```{r}
+#ggbarstats(data = grouped_data, x = condition, y = mean_exp, xlab = "", ylab = "FW ",ggtheme = ggstatsplot::theme_ggstatsplot(), notch = TRUE) 
+#+ 
+#   facet_grid(time~liquid, scales = "free_x", nrow = 1)
+```
+
+

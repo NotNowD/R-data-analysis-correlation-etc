@@ -1,0 +1,137 @@
+---
+title: "Correlation"
+author: "not_now_d"
+date: "2023-10-24"
+output: pdf_document
+---
+
+```{r pkg, message = FALSE}
+library(tidyverse)
+library(readxl)
+library(ggcorrplot)
+library(tibble)
+library(dplyr)
+library(formattable)
+library(Hmisc)
+library(minerva)
+library(PerformanceAnalytics)
+library(ggpubr)
+library(ggplot2)
+```
+
+```{r}
+data_tbl <- read_excel("data/General characteristic.xlsx")
+data_tbl
+```
+```{r}
+calculate_correlation <- function(var1, var2) {
+  shapiro_test_var1 <- shapiro.test(var1)
+  shapiro_test_var2 <- shapiro.test(var2)
+  
+  if (shapiro_test_var1$p.value > 0.05 && shapiro_test_var2$p.value > 0.05) {
+    # If normal, Pearson correlation
+    correlation <- cor(var1, var2, method = "pearson")
+    method <- "Pearson"
+    mic_value <- NA  # MIC doesn't apply to linear correlations
+  } else {
+    # If not normal, Spearman correlation
+    correlation <- cor(var1, var2, method = "spearman")
+    method <- "Spearman"
+    
+    # Maximal Information Correlation (MIC)
+    mic_value <- mine_stat(var1, var2, measure="mic")
+  }
+  
+  return(list(correlation = correlation, method = method, mic = mic_value))
+}
+
+
+result1 <- calculate_correlation(data_tbl$Вік, data_tbl$`Тривалість (днів)`)
+result2 <- calculate_correlation(data_tbl$Вік, data_tbl$`Перебіг захворювання (балів)`)
+result3 <- calculate_correlation(data_tbl$`Тривалість (днів)`, data_tbl$`Перебіг захворювання (балів)`)
+
+
+cat("Вік vs Тривалість (днів):", result1$method, "\n")
+cat("Correlation Value:", result1$correlation, "\n")
+cat("Maximal Information Correlation (MIC):", result1$mic, "\n")
+
+cat("Вік vs Перебіг захворювання (балів):", result2$method, "\n")
+cat("Correlation Value:", result2$correlation, "\n")
+cat("Maximal Information Correlation (MIC):", result2$mic, "\n")
+
+
+cat("Тривалість (днів) vs Перебіг захворювання (балів):", result3$method, "\n")
+cat("Correlation Value:", result3$correlation, "\n")
+cat("Maximal Information Correlation (MIC):", result3$mic, "\n")
+
+
+library(cowplot)
+p1 <- ggplot(mapping = aes(x = data_tbl$Вік , y = data_tbl$`Тривалість (днів)`))  + geom_point() +
+#  stat_smooth(method = "lm", col = "red") + 
+geom_smooth() + geom_smooth() + 
+xlab("Вік") + ylab("Тривалість (днів)") + 
+  labs(title = paste("Коефіцієнт кореляції = ", format(round(result1$correlation, 2)))) +  theme(axis.text.x = element_text(size=6), axis.text.y = element_text(size=6))
+                     
+p2 <- ggplot(mapping = aes(x = data_tbl$Вік , y = data_tbl$`Перебіг захворювання (балів)`)) + geom_point() +
+#  stat_smooth(method = "lm", col = "red") + 
+geom_smooth() + geom_smooth() + 
+xlab("Вік") + ylab("Перебіг захворювання (балів)") + 
+  labs(title = paste("Коефіцієнт кореляції = ", format(round(result2$correlation, 2)))) +  theme(axis.text.x = element_text(size=6), axis.text.y = element_text(size=6))
+
+p3 <- ggplot(mapping = aes(x = data_tbl$`Тривалість (днів)` , y = data_tbl$`Перебіг захворювання (балів)`)) + geom_point() +
+#  stat_smooth(method = "lm", col = "red") + 
+geom_smooth() +
+xlab("Тривалість (днів)") + ylab("Перебіг захворювання (балів)") + labs(title = paste("Коефіцієнт кореляції = ", format(round(result3$correlation, 2)))) +  theme(axis.text.x = element_text(size=6), axis.text.y = element_text(size=6))
+```
+
+```{r}
+png(filename = "figures/Correlation01.png", units="in", width=8, height=8, res=1000)
+plot_grid(p1, p2, p3)
+dev.off()
+```
+
+```{r}
+ggplotRegression <- function (fit) {
+
+require(ggplot2)
+
+ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                     "Intercept =",signif(fit$coef[[1]],5 ),
+                     " Slope =",signif(fit$coef[[2]], 5),
+                     " P =",signif(summary(fit)$coef[2,4], 5))) +  theme(plot.title = element_text(size=6))
+}
+#переплутані осі - назва осі не збігається із числом
+
+plot1 <- ggplotRegression(lm(data_tbl$Вік~data_tbl$`Тривалість (днів)`)) + 
+xlab("Вік") + ylab("Тривалість (днів)")
+plot2 <- ggplotRegression(lm(data_tbl$Вік~data_tbl$`Перебіг захворювання (балів)`)) + 
+xlab("Вік") + ylab("Перебіг захворювання (балів)")
+plot3 <- ggplotRegression(lm(data_tbl$`Тривалість (днів)`~data_tbl$`Перебіг захворювання (балів)`)) + 
+xlab("Тривалість (днів)") + ylab("Перебіг захворювання (балів)")
+#ggarrange(plot1, plot2, plot3, nrow = 3)
+library("gridExtra")
+grid.arrange(plot1, plot2, plot3)
+library(patchwork)
+plot1 + plot2 + plot3
+library(cowplot)
+plot_grid(plot1, plot2, plot3)
+```
+
+```{r}
+data_tbl |> select(Вік, `Тривалість (днів)`, `Перебіг захворювання (балів)`) -> new_tbl
+
+png(filename = "figures/Correlation.png", units="in", width=5, height=4, res=1000)
+chart.Correlation(new_tbl, histogram=TRUE, method = "spearman")
+#mtext("Title", side=3, line=3)
+#recordPlot()
+dev.off()
+#ggsave("figures/Correlation.png", plot = last_plot(), dpi = 500)
+```
+
+Оскільки розподіли таких параметрів як вік, тривалість та перебіг захворювання не нормальний, тому застосовувався коефіцієнт кореляції Спірмена. Кореляція між цим параметрами додатняя та сильна; p < 0.001
+
+
+
